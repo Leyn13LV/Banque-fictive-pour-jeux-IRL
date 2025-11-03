@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Banque Fictive - Monopoly</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial,sans-serif;padding:10px;max-width:800px;margin:auto;}
+input,button{width:100%;padding:8px;margin:4px 0;}
+table{width:100%;border-collapse:collapse;}
+th,td{border:1px solid #ccc;padding:6px;text-align:left;}
+h1,h3{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<h1>Banque Fictive - Monopoly</h1>
+
+<section>
+<h3>Créer un compte</h3>
+<input id="pseudo" placeholder="Pseudo">
+<input id="initial" placeholder="Solde initial">
+<button onclick="createAccount()">Créer le compte</button>
+<div id="createRes" style="color:green;"></div>
+</section>
+
+<section>
+<h3>Virement</h3>
+<input id="from" placeholder="Pseudo émetteur">
+<input id="to" placeholder="Pseudo destinataire">
+<input id="amount" placeholder="Montant">
+<button onclick="doTransfer()">Envoyer le virement</button>
+<div id="transRes" style="color:green;"></div>
+</section>
+
+<section>
+<h3>Comptes</h3>
+<button onclick="loadAccounts()">Rafraîchir</button>
+<table>
+<thead><tr><th>Pseudo</th><th>Solde</th></tr></thead>
+<tbody id="accountsTable"></tbody>
+</table>
+</section>
+
+<section>
+<h3>Transactions</h3>
+<table>
+<thead><tr><th>De</th><th>À</th><th>Montant</th></tr></thead>
+<tbody id="transTable"></tbody>
+</table>
+<button onclick="resetDB()">Réinitialiser</button>
+</section>
+
+<script>
+// Stockage local
+let accounts = JSON.parse(localStorage.getItem('accounts')||'[]');
+let transactions = JSON.parse(localStorage.getItem('transactions')||'[]');
+
+function save() {
+  localStorage.setItem('accounts', JSON.stringify(accounts));
+  localStorage.setItem('transactions', JSON.stringify(transactions));
+}
+
+function createAccount(){
+  let pseudo = document.getElementById('pseudo').value.trim();
+  let initial = parseInt(document.getElementById('initial').value)||0;
+  if(!pseudo){ alert("Pseudo requis"); return; }
+  if(accounts.find(a=>a.pseudo===pseudo)){ alert("Pseudo déjà utilisé"); return; }
+  accounts.push({pseudo, balance: initial});
+  save();
+  document.getElementById('createRes').innerText = `Compte créé pour ${pseudo}`;
+  loadAccounts();
+  loadTrans();
+}
+
+function doTransfer(){
+  let from = document.getElementById('from').value.trim();
+  let to = document.getElementById('to').value.trim();
+  let amount = parseInt(document.getElementById('amount').value)||0;
+  if(amount<=0){ alert("Montant invalide"); return; }
+  let f = accounts.find(a=>a.pseudo===from);
+  let t = accounts.find(a=>a.pseudo===to);
+  if(!f || !t){ alert("Pseudo introuvable"); return; }
+  if(f.balance<amount){ alert("Solde insuffisant"); return; }
+  f.balance -= amount;
+  t.balance += amount;
+  transactions.push({from,to,amount});
+  save();
+  document.getElementById('transRes').innerText = "Virement effectué !";
+  loadAccounts();
+  loadTrans();
+}
+
+function loadAccounts(){
+  let tbody = document.getElementById('accountsTable');
+  tbody.innerHTML='';
+  accounts.forEach(a=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${a.pseudo}</td><td>${a.balance}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function loadTrans(){
+  let tbody = document.getElementById('transTable');
+  tbody.innerHTML='';
+  transactions.forEach(t=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${t.from}</td><td>${t.to}</td><td>${t.amount}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function resetDB(){
+  if(!confirm("Supprimer tout ?")) return;
+  accounts=[]; transactions=[];
+  save();
+  loadAccounts(); loadTrans();
+}
+
+loadAccounts(); loadTrans();
+</script>
+</body>
+</html>
