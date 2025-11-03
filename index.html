@@ -1,123 +1,429 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Banque Fictive - Monopoly</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Banque Monopolix — Banque & Marché Fictif</title>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-body{font-family:Arial,sans-serif;padding:10px;max-width:800px;margin:auto;}
-input,button{width:100%;padding:8px;margin:4px 0;}
-table{width:100%;border-collapse:collapse;}
-th,td{border:1px solid #ccc;padding:6px;text-align:left;}
-h1,h3{margin-bottom:6px;}
+  :root{
+    --bg:#0f1724; --card:#0b1220; --muted:#94a3b8; --accent:#f59e0b; --accent2:#10b981;
+    --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  body{font-family:Inter,ui-sans-serif,system-ui,Arial; margin:0; padding:18px; background:linear-gradient(180deg,#07102a, #071024); color:#e6eef8; min-height:100vh;}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  h1{font-size:18px;margin:0}
+  small{color:var(--muted)}
+  .layout{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:900px){ .layout{grid-template-columns:360px 1fr} }
+  .card{background:var(--card);padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+  button{background:var(--accent);color:black;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
+  input,select{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:var(--glass);color:inherit;width:100%}
+  table{width:100%;border-collapse:collapse;color:inherit}
+  th,td{padding:6px;text-align:left;border-bottom:1px dashed rgba(255,255,255,0.03);font-size:13px}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:8px}
+  .row> *{flex:1}
+  .token-name{font-weight:600}
+  .positive{color:var(--accent2)}
+  .negative{color:#fb7185}
+  footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
 </style>
 </head>
 <body>
-<h1>Banque Fictive - Monopoly</h1>
 
-<section>
-<h3>Créer un compte</h3>
-<input id="pseudo" placeholder="Pseudo">
-<input id="initial" placeholder="Solde initial">
-<button onclick="createAccount()">Créer le compte</button>
-<div id="createRes" style="color:green;"></div>
-</section>
+<header>
+  <div style="width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#042022">M</div>
+  <div>
+    <h1>Banque <span style="color:var(--accent)">Monopolix</span></h1>
+    <small>Banque fictive — jeu entre amis (pas de données réelles)</small>
+  </div>
+</header>
 
-<section>
-<h3>Virement</h3>
-<input id="from" placeholder="Pseudo émetteur">
-<input id="to" placeholder="Pseudo destinataire">
-<input id="amount" placeholder="Montant">
-<button onclick="doTransfer()">Envoyer le virement</button>
-<div id="transRes" style="color:green;"></div>
-</section>
+<div class="layout">
+  <!-- LEFT COLUMN: Solde / Actions / Portfolio -->
+  <div>
+    <div class="card" id="bankCard">
+      <h3>Solde du joueur</h3>
+      <p style="font-size:22px;margin:8px 0"><span id="balanceDisplay">0</span> <small class="muted">€</small></p>
+      <div style="margin-top:8px">
+        <input id="playerName" placeholder="Ton pseudo (ex: Leyn)">
+        <div class="row" style="margin-top:8px">
+          <input id="depositAmt" placeholder="Ajouter au solde (ex: 1000)">
+          <button onclick="deposit()">+ Ajouter</button>
+        </div>
+        <div style="margin-top:8px" class="muted">Ton pseudo est utilisé pour le portefeuille local (localStorage).</div>
+      </div>
+    </div>
 
-<section>
-<h3>Comptes</h3>
-<button onclick="loadAccounts()">Rafraîchir</button>
-<table>
-<thead><tr><th>Pseudo</th><th>Solde</th></tr></thead>
-<tbody id="accountsTable"></tbody>
-</table>
-</section>
+    <div class="card" style="margin-top:12px">
+      <h3>Portefeuille</h3>
+      <table>
+        <thead><tr><th>Token</th><th>Qté</th><th>Valeur</th></tr></thead>
+        <tbody id="portfolioBody"></tbody>
+      </table>
+      <div style="margin-top:8px" class="muted">Valeur calculée avec les prix du marché.</div>
+    </div>
 
-<section>
-<h3>Transactions</h3>
-<table>
-<thead><tr><th>De</th><th>À</th><th>Montant</th></tr></thead>
-<tbody id="transTable"></tbody>
-</table>
-<button onclick="resetDB()">Réinitialiser</button>
-</section>
+    <div class="card" style="margin-top:12px">
+      <h3>Investissements (Placement)</h3>
+      <div class="muted">Placer une somme pour une durée et gagner des intérêts.</div>
+      <div style="margin-top:8px" class="row">
+        <input id="investAmt" placeholder="Montant">
+        <select id="investTerm">
+          <option value="1">1 jour (1%)</option>
+          <option value="3">3 jours (3%)</option>
+          <option value="7">7 jours (8%)</option>
+        </select>
+      </div>
+      <div style="margin-top:8px">
+        <button onclick="placeInvestment()">Placer</button>
+      </div>
+      <table style="margin-top:8px">
+        <thead><tr><th>Montant</th><th>Term</th><th>Fin</th><th>Statut</th></tr></thead>
+        <tbody id="investBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: Market + Actions + Transactions + Chart -->
+  <div>
+    <div class="card">
+      <h3>Marché des Cryptos (fictif)</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input id="searchToken" placeholder="Rechercher token (ex: MONO)" oninput="renderMarket()">
+        <select id="selectToken" onchange="selectTokenChanged()"></select>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="flex:1">
+          <table>
+            <thead><tr><th>Token</th><th>Prix</th><th>24h</th><th>Action</th></tr></thead>
+            <tbody id="marketBody"></tbody>
+          </table>
+        </div>
+
+        <div style="width:280px">
+          <div style="margin-bottom:8px">
+            <h4 id="tokenTitle">Sélectionne un token</h4>
+            <div id="tokenPrice" style="font-size:18px"></div>
+          </div>
+          <div>
+            <input id="tradeAmount" placeholder="Montant à dépenser (€) pour acheter / Qté pour vendre">
+            <div class="row" style="margin-top:8px">
+              <button onclick="buyToken()">Acheter</button>
+              <button onclick="sellToken()" style="background:#fb7185;color:white">Vendre</button>
+            </div>
+            <div style="margin-top:8px" class="muted">Ex: pour acheter, indique le montant en € ; pour vendre, indique la quantité.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3>Graphique prix</h3>
+      <canvas id="priceChart" height="120"></canvas>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3>Historique</h3>
+      <table>
+        <thead><tr><th>Type</th><th>Détails</th><th>Montant</th></tr></thead>
+        <tbody id="txBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<footer>Banque Monopolix — Système fictif pour jouer. <span class="muted">Tout est stocké localement.</span></footer>
 
 <script>
-// Stockage local
-let accounts = JSON.parse(localStorage.getItem('accounts')||'[]');
-let transactions = JSON.parse(localStorage.getItem('transactions')||'[]');
+/*
+  Banque Monopolix - JS client
+  - stockage dans localStorage
+  - marché simulé par random walk
+  - achat / vente / placements
+*/
 
-function save() {
-  localStorage.setItem('accounts', JSON.stringify(accounts));
-  localStorage.setItem('transactions', JSON.stringify(transactions));
+// ------------------------
+// données initiales & util
+// ------------------------
+const DEFAULT_BALANCE = 1500;
+const TOKENS_KEY = 'mono_tokens_v1';
+const STATE_KEY = 'mono_state_v1';
+
+// tokens initiaux (symbole, nom, prix initial)
+const defaultTokens = [
+  {sym:'MONO', name:'MonopolyCoin', price: 1.0},
+  {sym:'BILT', name:'Billet', price: 10.0},
+  {sym:'ISLE', name:'IslandToken', price: 0.5},
+  {sym:'CRE8', name:'CreateCoin', price: 3.25},
+  {sym:'RNT', name:'RentPay', price: 7.5}
+];
+
+let state = {
+  player: {name:'Joueur', balance: DEFAULT_BALANCE, portfolio: {} },
+  tokens: [],          // liste tokens {sym,name,price,history:[]}
+  txs: [],             // journal des actions
+  investments: []      // placements (montant, termDays, endTimestamp, paid)
+};
+
+// random helper
+const rand = (a,b)=>a + Math.random()*(b-a);
+const nowISO = ()=> new Date().toISOString();
+
+// ------------------------
+// persistence
+// ------------------------
+function saveState(){ localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+function loadState(){
+  const raw = localStorage.getItem(STATE_KEY);
+  if(raw){
+    try{ state = JSON.parse(raw); return; } catch(e){}
+  }
+  // init fresh
+  state.tokens = defaultTokens.map(t=>({ ...t, history: [t.price] }));
+  state.player = { name:'Joueur', balance: DEFAULT_BALANCE, portfolio: {} };
+  state.txs = [];
+  state.investments = [];
+  saveState();
+}
+loadState();
+
+// ------------------------
+// rendu UI
+// ------------------------
+function format(n){ return Number.isFinite(n) ? n.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2}) : n; }
+
+function renderAll(){
+  document.getElementById('balanceDisplay').innerText = format(state.player.balance);
+  document.getElementById('playerName').value = state.player.name || '';
+  renderPortfolio();
+  renderMarket();
+  renderTx();
+  renderInvestments();
+  populateSelect();
+  renderChart(selectedTokenSym);
+}
+function renderPortfolio(){
+  const tbody = document.getElementById('portfolioBody'); tbody.innerHTML='';
+  const p = state.player.portfolio;
+  const tokens = state.tokens;
+  for(const sym in p){
+    const qty = p[sym];
+    const t = tokens.find(x=>x.sym===sym);
+    const value = (t ? t.price * qty : 0);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${sym}</td><td>${qty.toFixed(4)}</td><td>${format(value)} €</td>`;
+    tbody.appendChild(tr);
+  }
+  // si vide
+  if(Object.keys(p).length===0) tbody.innerHTML = '<tr><td colspan="3" class="muted">Aucun token détenu</td></tr>';
 }
 
-function createAccount(){
-  let pseudo = document.getElementById('pseudo').value.trim();
-  let initial = parseInt(document.getElementById('initial').value)||0;
-  if(!pseudo){ alert("Pseudo requis"); return; }
-  if(accounts.find(a=>a.pseudo===pseudo)){ alert("Pseudo déjà utilisé"); return; }
-  accounts.push({pseudo, balance: initial});
-  save();
-  document.getElementById('createRes').innerText = `Compte créé pour ${pseudo}`;
-  loadAccounts();
-  loadTrans();
-}
-
-function doTransfer(){
-  let from = document.getElementById('from').value.trim();
-  let to = document.getElementById('to').value.trim();
-  let amount = parseInt(document.getElementById('amount').value)||0;
-  if(amount<=0){ alert("Montant invalide"); return; }
-  let f = accounts.find(a=>a.pseudo===from);
-  let t = accounts.find(a=>a.pseudo===to);
-  if(!f || !t){ alert("Pseudo introuvable"); return; }
-  if(f.balance<amount){ alert("Solde insuffisant"); return; }
-  f.balance -= amount;
-  t.balance += amount;
-  transactions.push({from,to,amount});
-  save();
-  document.getElementById('transRes').innerText = "Virement effectué !";
-  loadAccounts();
-  loadTrans();
-}
-
-function loadAccounts(){
-  let tbody = document.getElementById('accountsTable');
-  tbody.innerHTML='';
-  accounts.forEach(a=>{
-    let tr=document.createElement('tr');
-    tr.innerHTML=`<td>${a.pseudo}</td><td>${a.balance}</td>`;
+function renderMarket(){
+  const q = document.getElementById('searchToken').value.trim().toLowerCase();
+  const tbody = document.getElementById('marketBody'); tbody.innerHTML='';
+  state.tokens.forEach(t=>{
+    if(q && !(t.sym.toLowerCase().includes(q) || t.name.toLowerCase().includes(q))) return;
+    const last = t.price;
+    // 24h change approximé : différence entre last and history[0]
+    const base = t.history[0] || last;
+    const change = ((last - base) / (base || 1)) * 100;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><span class="token-name">${t.sym}</span><div class="muted" style="font-size:12px">${t.name}</div></td>
+                    <td>${format(last)} €</td>
+                    <td class="${change>=0 ? 'positive':''}">${change.toFixed(2)}%</td>
+                    <td><button onclick="selectToken('${t.sym}')">Sélection</button></td>`;
     tbody.appendChild(tr);
   });
 }
 
-function loadTrans(){
-  let tbody = document.getElementById('transTable');
-  tbody.innerHTML='';
-  transactions.forEach(t=>{
-    let tr=document.createElement('tr');
-    tr.innerHTML=`<td>${t.from}</td><td>${t.to}</td><td>${t.amount}</td>`;
+function renderTx(){
+  const tbody = document.getElementById('txBody'); tbody.innerHTML='';
+  if(state.txs.length===0){ tbody.innerHTML='<tr><td colspan="3" class="muted">Aucune opération</td></tr>'; return; }
+  state.txs.slice().reverse().forEach(tx=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${tx.type}</td><td>${tx.details}</td><td>${tx.amount}</td>`;
     tbody.appendChild(tr);
   });
 }
 
-function resetDB(){
-  if(!confirm("Supprimer tout ?")) return;
-  accounts=[]; transactions=[];
-  save();
-  loadAccounts(); loadTrans();
+// investments
+function renderInvestments(){
+  const tbody = document.getElementById('investBody'); tbody.innerHTML='';
+  if(state.investments.length===0){ tbody.innerHTML='<tr><td colspan="4" class="muted">Aucun placement</td></tr>'; return; }
+  state.investments.forEach(inv=>{
+    const end = new Date(inv.end).toLocaleString();
+    const status = inv.paid ? 'Terminé' : (new Date() > new Date(inv.end) ? 'À récupérer' : 'En cours');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${format(inv.amount)} €</td><td>${inv.term}j</td><td>${end}</td><td>${status}</td>`;
+    tbody.appendChild(tr);
+  });
 }
 
-loadAccounts(); loadTrans();
+// select token list
+function populateSelect(){
+  const sel = document.getElementById('selectToken'); sel.innerHTML='';
+  state.tokens.forEach(t => {
+    const opt = document.createElement('option'); opt.value = t.sym; opt.textContent = `${t.sym} — ${t.name}`;
+    sel.appendChild(opt);
+  });
+}
+
+// ------------------------
+// market simulation
+// ------------------------
+// Simple random walk: chaque tick, chaque token varie de -3% à +3% (plus volatil si prix bas)
+function marketTick(){
+  state.tokens.forEach(t => {
+    const vol = 0.03; // 3%
+    const change = rand(-vol, vol) * (1 + Math.log(1 + Math.abs(t.price))/5);
+    t.price = Math.max(0.01, +(t.price * (1 + change)).toFixed(4));
+    t.history.push(t.price);
+    // keep history size reasonable
+    if(t.history.length>200) t.history.shift();
+  });
+  saveState();
+  renderAll();
+}
+
+// lancer tick automatique toutes les 5 secondes
+setInterval(marketTick, 5000);
+
+// ------------------------
+// trading functions
+// ------------------------
+function deposit(){
+  const amt = parseFloat(document.getElementById('depositAmt').value) || 0;
+  const name = document.getElementById('playerName').value.trim() || 'Joueur';
+  if(amt<=0){ alert('Montant invalide'); return; }
+  state.player.balance += amt;
+  state.player.name = name;
+  state.txs.push({type:'Dépôt', details:`+${format(amt)} € (solde)`, amount: `+${format(amt)} €`, ts:nowISO()});
+  saveState(); renderAll();
+  document.getElementById('depositAmt').value='';
+}
+
+let selectedTokenSym = state.tokens[0]?.sym || null;
+function selectToken(sym){
+  selectedTokenSym = sym;
+  selectTokenChanged();
+}
+function selectTokenChanged(){
+  const sym = document.getElementById('selectToken').value || selectedTokenSym;
+  selectedTokenSym = sym;
+  renderChart(sym);
+  const t = state.tokens.find(x=>x.sym===sym);
+  document.getElementById('tokenTitle').innerText = `${t.sym} — ${t.name}`;
+  document.getElementById('tokenPrice').innerHTML = `<strong>${format(t.price)} €</strong>`;
+}
+
+// Acheter: on donne un montant en € -> on calcule quantité = amount / price
+function buyToken(){
+  const amt = parseFloat(document.getElementById('tradeAmount').value) || 0;
+  if(!selectedTokenSym){ alert('Sélectionne un token'); return; }
+  if(amt <= 0){ alert('Montant invalide'); return; }
+  if(state.player.balance < amt){ alert('Solde insuffisant'); return; }
+  const t = state.tokens.find(x=>x.sym===selectedTokenSym);
+  const qty = +(amt / t.price);
+  // update portfolio
+  state.player.portfolio[selectedTokenSym] = (state.player.portfolio[selectedTokenSym] || 0) + qty;
+  state.player.balance -= amt;
+  state.txs.push({type:'Achat', details:`Achat ${qty.toFixed(4)} ${selectedTokenSym} @ ${format(t.price)} €`, amount:`-${format(amt)} €`, ts:nowISO()});
+  saveState(); renderAll();
+  document.getElementById('tradeAmount').value='';
+}
+
+// Vendre: on donne quantité -> reçois qty*price
+function sellToken(){
+  const val = parseFloat(document.getElementById('tradeAmount').value) || 0;
+  if(!selectedTokenSym){ alert('Sélectionne un token'); return; }
+  if(val <= 0){ alert('Quantité invalide'); return; }
+  const qty = val;
+  const own = state.player.portfolio[selectedTokenSym] || 0;
+  if(own < qty){ alert('Tu n’as pas assez de token'); return; }
+  const t = state.tokens.find(x=>x.sym===selectedTokenSym);
+  const receivable = +(qty * t.price);
+  state.player.portfolio[selectedTokenSym] = +(own - qty);
+  if(state.player.portfolio[selectedTokenSym] <= 0) delete state.player.portfolio[selectedTokenSym];
+  state.player.balance += receivable;
+  state.txs.push({type:'Vente', details:`Vente ${qty.toFixed(4)} ${selectedTokenSym} @ ${format(t.price)} €`, amount:`+${format(receivable)} €`, ts:nowISO()});
+  saveState(); renderAll();
+  document.getElementById('tradeAmount').value='';
+}
+
+// ------------------------
+// investments (placements simples)
+// ------------------------
+function placeInvestment(){
+  const amt = parseFloat(document.getElementById('investAmt').value) || 0;
+  const term = parseInt(document.getElementById('investTerm').value) || 1;
+  if(amt<=0){ alert('Montant invalide'); return; }
+  if(state.player.balance < amt){ alert('Solde insuffisant'); return; }
+  // define simple rates (consistent with select options)
+  const rateMap = {1:0.01, 3:0.03, 7:0.08};
+  const rate = rateMap[term] || 0.01;
+  const start = Date.now();
+  const end = start + term * 24*60*60*1000; // days -> ms
+  state.player.balance -= amt;
+  state.investments.push({amount:amt, term, rate, start: new Date(start).toISOString(), end: new Date(end).toISOString(), paid:false});
+  state.txs.push({type:'Placement', details:`Placement ${format(amt)} € pour ${term}j (${(rate*100).toFixed(2)}%)`, amount:`-${format(amt)} €`, ts:nowISO()});
+  saveState(); renderAll();
+  document.getElementById('investAmt').value='';
+}
+
+// check investments due (can be called periodically)
+function checkInvestments(){
+  const now = new Date();
+  state.investments.forEach(inv => {
+    if(!inv.paid && new Date(inv.end) <= now){
+      // pay out
+      const profit = inv.amount * inv.rate;
+      const total = inv.amount + profit;
+      inv.paid = true;
+      state.player.balance += total;
+      state.txs.push({type:'Placement payé', details:`Remboursement ${format(total)} € (capital+intérêts)`, amount:`+${format(total)} €`, ts:nowISO()});
+    }
+  });
+  saveState(); renderAll();
+}
+// run check every minute
+setInterval(checkInvestments, 60*1000);
+
+// ------------------------
+// chart (prices of selected token)
+// ------------------------
+let chart = null;
+function renderChart(sym){
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  const token = state.tokens.find(t=>t.sym===sym) || state.tokens[0];
+  if(!token) return;
+  const labels = token.history.map((_,i)=>i - token.history.length + 1);
+  const data = token.history;
+  if(chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ label: token.sym, data, tension:0.2, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)', pointRadius:0 }] },
+    options: { plugins:{legend:{display:false}}, scales:{x:{display:false}, y:{ticks:{color:'#cfe8ff'}}}
+  });
+}
+
+// ------------------------
+// init
+// ------------------------
+document.getElementById('playerName').addEventListener('change', e=>{
+  state.player.name = e.target.value || 'Joueur';
+  saveState();
+});
+document.getElementById('searchToken').addEventListener('input', renderMarket);
+
+loadState(); renderAll();
+selectTokenChanged(); // set UI for selected token
 </script>
 </body>
 </html>
